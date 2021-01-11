@@ -2114,7 +2114,8 @@ class LineGenerator(Visitor[Line]):
             prefix = get_string_prefix(leaf.value)
             lead_len = len(prefix) + 3
             tail_len = -3
-            indent = " " * 4 * self.current_line.depth
+            indent_token = "\t" if self.current_line.use_tabs else " " * 4
+            indent = indent_token * self.current_line.depth
             docstring = fix_docstring(leaf.value[lead_len:tail_len], indent)
             if docstring:
                 if leaf.value[lead_len - 1] == docstring[0]:
@@ -6501,6 +6502,7 @@ def is_line_short_enough(line: Line, *, line_length: int, line_str: str = "") ->
     if not line_str:
         # Force spaces to ensure len(line) is correct
         line_str = line.render(force_spaces=True).strip("\n")
+    line_str = line_str.replace("\t", " " * 4)  # Fixes #3
     return (
         len(line_str) <= line_length
         and "\n" not in line_str  # multiline strings
@@ -6857,7 +6859,11 @@ def fix_docstring(docstring: str, prefix: str) -> str:
     # https://www.python.org/dev/peps/pep-0257/#handling-docstring-indentation
     if not docstring:
         return ""
-    lines = lines_with_leading_tabs_expanded(docstring)
+    elif "\t" in prefix:
+        # Fixes tabs in docstrings.
+        lines = docstring.splitlines()
+    else:
+        lines = lines_with_leading_tabs_expanded(docstring)
     # Determine minimum indentation (first line doesn't count):
     indent = sys.maxsize
     for line in lines[1:]:
